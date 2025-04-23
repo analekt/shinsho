@@ -10,7 +10,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Needed to commit to gh-pages branch
+      contents: write # Needed to commit to gh-pages branch and save cache
 
     steps:
       - name: Checkout repository
@@ -19,26 +19,43 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' # Specify desired Python version
+          python-version: '3.11'
+
+      # Use cache action for the previous ISBN list
+      - name: Cache previous ISBN list
+        id: cache-isbns # Give the step an ID
+        uses: actions/cache@v4
+        with:
+          path: isbns_previous.json # File to cache
+          # Key based on OS and a static string - ensures consistency
+          # Change 'v1' if cache structure changes significantly
+          key: ${{ runner.os }}-isbns-v1
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests feedgen pytz
 
-      - name: Generate RSS Feed
+      - name: Generate RSS Feed (Differential Update)
+        # This script now handles the logic of using/saving isbns_previous.json
         run: python generate_feed.py
 
       - name: Deploy to GitHub Pages
+        # Deploy only if the feed file actually exists
+        # This prevents empty commits if the script exits early or fails to generate the file
+        if: success() && hashFiles('feed.xml') != ''
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./  # Directory containing feed.xml (root in this case)
-          publish_branch: gh-pages # Branch to deploy to
+          # Specify the file to publish, not the whole directory
+          # This avoids publishing the isbns_previous.json to gh-pages
+          publish_dir: ./feed.xml
+          publish_branch: gh-pages # Deploy to this branch
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Update feed.xml'
-          # Optional: uncomment to keep other files in gh-pages branch
-          # keep_files: true
-          # Optional: uncomment to create a new commit history each time
-          # force_orphan: true 
+          commit_message: 'Update feed.xml [skip ci]' # Add [skip ci] to prevent triggering other workflows
+          # Keep existing files on gh-pages? Defaults to false (clean deploy)
+          # If feed.xml is the only file, cleaning is fine.
+          # keep_files: false
+          # Destination directory on the gh-pages branch (optional, defaults to root)
+          # destination_dir: .
