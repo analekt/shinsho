@@ -30,7 +30,7 @@ FEED_TITLE = "新刊新書RSSフィード"
 FEED_DESCRIPTION = "発売が確定した新書の情報をRSSリーダーで購読できます。版元ドットコムのAPIを利用しています。"
 FEED_LINK_BASE = "https://www.books.or.jp/book-details/"
 FEED_WEBMASTER = "https://analekt.github.io/"
-FEED_COPYRIGHT = "© openBDプロジェクト、JPO出版情報登録センター"
+FEED_COPYRIGHT = "Copyright owner: openBDプロジェクト、JPO出版情報登録センター"
 PREVIOUS_ISBNS_FILE = "isbns_previous.json"
 MAX_FEED_ITEMS = 200
 # --- End Constants ---
@@ -246,7 +246,7 @@ def generate_rss_feed(filtered_books):
     fg.language('ja')
     fg.copyright(FEED_COPYRIGHT)
     fg.managingEditor(FEED_WEBMASTER)
-    fg.generator("OpenBD Feed Generator v0.1")
+    fg.generator("https://github.com/analekt/shinsho")
 
     jst = pytz.timezone('Asia/Tokyo')
     now_jst = datetime.now(jst)
