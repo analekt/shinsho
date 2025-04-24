@@ -42,9 +42,8 @@ jobs:
         run: python generate_feed.py
 
       - name: Deploy to GitHub Pages
-        # Deploy only if the feed file actually exists and is not empty
-        # This prevents empty commits if the script fails or finds no matching books
-        if: success() && hashFiles('feed.xml') != '' && ! ( test $(find feed.xml -type f -size 0c -print -quit) )
+        # Deploy only if the previous steps succeeded AND feed.xml exists
+        if: success() && hashFiles('feed.xml') != ''
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
