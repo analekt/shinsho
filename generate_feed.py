@@ -30,7 +30,7 @@ FEED_TITLE = "発売決定新書RSSフィード"
 FEED_DESCRIPTION = "発売が確定した新書の情報をRSSリーダーで購読できます。"
 FEED_LINK_BASE = "https://www.books.or.jp/book-details/"
 FEED_WEBMASTER = "https://analekt.github.io/" # Or your contact info
-FEED_COPYRIGHT = "© openBDプロジェクト、JPO出版情報登録センター"
+FEED_COPYRIGHT = "Copyright owner: openBDプロジェクト、JPO出版情報登録センター"
 PREVIOUS_ISBNS_FILE = "isbns_previous.json" # File to store previous ISBNs
 MAX_FEED_ITEMS = 200 # Max items in the generated feed
 # --- End Constants ---
@@ -272,6 +272,7 @@ def filter_books(book_data_list):
 
 def generate_rss_feed(filtered_books):
     """Generates the RSS feed using feedgen and saves it to OUTPUT_FILE.
+    Includes updated docs and generator elements.
     Limits the number of items in the feed to MAX_FEED_ITEMS.
     """
     fg = FeedGenerator()
@@ -285,7 +286,12 @@ def generate_rss_feed(filtered_books):
     fg.language('ja')
     fg.copyright(FEED_COPYRIGHT)
     fg.managingEditor(FEED_WEBMASTER) # Using managingEditor for webMaster info
-    fg.generator("OpenBD Feed Generator v0.1") # Simpler generator string
+
+    # Set generator element as requested
+    fg.generator("https://github.com/analekt/shinsho/")
+
+    # Set docs element as requested
+    fg.docs("http://blogs.law.harvard.edu/tech/rss")
 
     # Set lastBuildDate to current time in JST
     jst = pytz.timezone('Asia/Tokyo')
@@ -329,7 +335,6 @@ def generate_rss_feed(filtered_books):
         if author:
             fe.author({'name': author})
         else:
-            # Add an empty author tag? Or omit? feedgen likely omits if None/empty.
              pass # Omit author tag if empty
 
         fe.description(get_description(onix))
