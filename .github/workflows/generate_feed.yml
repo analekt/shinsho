@@ -14,6 +14,7 @@ jobs:
 
     steps:
       - name: Checkout repository
+        # Checks out the default branch (master/main)
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -41,21 +42,24 @@ jobs:
         run: python generate_feed.py
 
       - name: Deploy to GitHub Pages
-        # Deploy only if the feed file actually exists
-        # This prevents empty commits if the script exits early or fails to generate the file
-        if: success() && hashFiles('feed.xml') != ''
+        # Deploy only if the feed file actually exists and is not empty
+        # This prevents empty commits if the script fails or finds no matching books
+        if: success() && hashFiles('feed.xml') != '' && ! ( test $(find feed.xml -type f -size 0c -print -quit) )
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # Specify the file to publish, not the whole directory
-          # This avoids publishing the isbns_previous.json to gh-pages
-          publish_dir: ./feed.xml
+          # Specify the directory containing feed.xml
+          publish_dir: ./
+          # Only include feed.xml in the deployment, exclude others like isbns_previous.json
+          # The action defaults should handle this correctly by using the content of publish_dir
+          # but explicitly setting exclude_assets might be safer if needed.
+          # exclude_assets: 'isbns_previous.json' # Example if needed
           publish_branch: gh-pages # Deploy to this branch
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
           commit_message: 'Update feed.xml [skip ci]' # Add [skip ci] to prevent triggering other workflows
           # Keep existing files on gh-pages? Defaults to false (clean deploy)
-          # If feed.xml is the only file, cleaning is fine.
+          # If feed.xml is the only intended file, cleaning is usually best.
           # keep_files: false
-          # Destination directory on the gh-pages branch (optional, defaults to root)
-          # destination_dir: .
+          # Allow empty commits? No, we check if feed.xml exists.
+          allow_empty_commit: false

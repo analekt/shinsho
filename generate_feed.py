@@ -36,6 +36,8 @@ MAX_FEED_ITEMS = 200 # Max items in the generated feed
 # --- End Constants ---
 
 # --- Logging Setup ---
+# Use INFO level for standard run, DEBUG for more details if needed
+# logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 # --- End Logging Setup ---
 
@@ -97,7 +99,8 @@ def get_book_details(isbn_list):
     """Fetches book details from the OpenBD get API for a list of ISBNs."""
     if not isbn_list:
         return []
-    logging.info(f"Fetching details for {len(isbn_list)} ISBNs from {OPENBD_API_GET_URL}...")
+    # Reduced log verbosity for batch fetching
+    # logging.info(f"Fetching details for {len(isbn_list)} ISBNs from {OPENBD_API_GET_URL}...")
     try:
         isbn_string = ",".join(isbn_list)
         # Use POST request with 'isbn' parameter
@@ -106,7 +109,8 @@ def get_book_details(isbn_list):
         data = response.json()
         # Filter out null responses and ensure items are dicts
         valid_data = [item for item in data if item is not None and isinstance(item, dict)]
-        logging.info(f"Successfully fetched details for {len(valid_data)} out of {len(isbn_list)} requested ISBNs.")
+        # Reduced log verbosity
+        # logging.info(f"Successfully fetched details for {len(valid_data)} out of {len(isbn_list)} requested ISBNs.")
         return valid_data
     except requests.exceptions.RequestException as e:
         logging.error(f"Error fetching book details batch starting with {isbn_list[:3]}...: {e}")
@@ -143,7 +147,7 @@ def parse_pubdate(pubdate_str):
 
     # If parsing failed with all formats
     if dt is None:
-        # logging.warning(f"Could not parse date string: {pubdate_str} with any known format.") # Reduce log noise
+        # logging.debug(f"Could not parse date string: {pubdate_str}") # Keep log noise low
         return None
 
     # Try to make it timezone-aware (JST)
@@ -154,7 +158,7 @@ def parse_pubdate(pubdate_str):
         return dt_aware
     except Exception as e:
         # Failed to localize (e.g., invalid date components after parsing?)
-        # logging.warning(f"Error localizing parsed date {dt} for input '{pubdate_str}': {e}") # Reduce log noise
+        logging.debug(f"Error localizing parsed date {dt} for input '{pubdate_str}': {e}")
         return None
 
 
@@ -192,7 +196,7 @@ def get_description(onix_data):
 def filter_books(book_data_list):
     """Filters books based on target C-Codes ('78' scheme) and valid, parsable pubdate.
     Returns a list of tuples: (book_data, parsed_pubdate_datetime)
-    sorted by pubdate (newest first).
+    sorted by pubdate (newest first). Includes detailed logging for skipped books.
     """
     filtered_list = []
     processed_count = 0
@@ -203,15 +207,21 @@ def filter_books(book_data_list):
         processed_count += 1
         # Basic validation
         if not book_data or not isinstance(book_data, dict) or 'summary' not in book_data:
-            # logging.debug(f"Skipping invalid book data item: {book_data}")
+            logging.debug(f"Item {processed_count}: Skipping invalid book data structure.")
             continue
         summary = book_data.get('summary')
-        if not isinstance(summary, dict): continue
+        if not isinstance(summary, dict):
+            logging.debug(f"Item {processed_count}: Skipping due to non-dict summary.")
+            continue
         isbn = summary.get('isbn')
-        if not isbn or not summary.get('title'): continue # Skip if essential info missing
+        title = summary.get('title', '[No Title]') # Use default for logging if title missing
+        if not isbn or not summary.get('title'):
+             logging.debug(f"Item {processed_count} (ISBN: {isbn or 'N/A'}): Skipping due to missing ISBN or title.")
+             continue
 
-        # Check C-Code (Subject) - Updated Logic for Scheme '78'
+        # Check C-Code (Subject) - Updated Logic for Scheme '78' with logging
         c_code_match = False
+        c_code_found = None # Track the C-Code found (if any) with scheme 78
         try:
             onix = book_data.get('onix')
             if isinstance(onix, dict):
@@ -221,33 +231,44 @@ def filter_books(book_data_list):
                      if isinstance(subjects, list):
                          for subject in subjects:
                              if (isinstance(subject, dict) and
-                                 subject.get('SubjectSchemeIdentifier') == '78' and # Check '78'
-                                 subject.get('SubjectCode') in TARGET_C_CODES):     # Check updated codes
+                                 subject.get('SubjectSchemeIdentifier') == '78'):
+                                 c_code_found = subject.get('SubjectCode') # Store the found C-Code
+                                 if c_code_found in TARGET_C_CODES:
                                      c_code_match = True
-                                     break
+                                     break # Found a matching code, stop checking subjects for this book
         except Exception as e:
-             # Log unexpected structure issues but don't halt processing for one book
-             logging.warning(f"Error accessing subject data for ISBN {isbn}: {e}. Assuming no C-Code match.")
+             logging.warning(f"ISBN {isbn} ('{title}'): Error accessing subject data: {e}. Assuming no C-Code match.")
 
-        if not c_code_match:
-            continue # Skip if no target C-Code found
+        # If C-Code matched, check pubdate
+        if c_code_match:
+            pubdate_str = summary.get('pubdate')
+            parsed_date = parse_pubdate(pubdate_str)
 
-        # Check and parse pubdate
-        pubdate_str = summary.get('pubdate')
-        parsed_date = parse_pubdate(pubdate_str)
-
-        if parsed_date:
-            # Add book data and its parsed date to the list
-            filtered_list.append((book_data, parsed_date))
-            matched_count += 1
-        # else:
-            # logging.debug(f"Skipping ISBN {isbn}: Missing or unparsable pubdate '{pubdate_str}'.") # Reduce noise
+            if parsed_date:
+                # Both C-Code and Pubdate matched!
+                filtered_list.append((book_data, parsed_date))
+                matched_count += 1
+                logging.debug(f"ISBN {isbn} ('{title}'): MATCHED! (C-Code: {c_code_found}, Pubdate: {parsed_date})")
+            else:
+                # C-Code matched, but date failed
+                if pubdate_str:
+                    logging.debug(f"ISBN {isbn} ('{title}'): Skipping. Matched C-Code '{c_code_found}' but pubdate '{pubdate_str}' is unparsable/invalid.")
+                else:
+                    logging.debug(f"ISBN {isbn} ('{title}'): Skipping. Matched C-Code '{c_code_found}' but pubdate is missing.")
+        else:
+            # C-Code did not match, log why (only if DEBUG level is enabled)
+            if logging.getLogger().isEnabledFor(logging.DEBUG):
+                if c_code_found is None:
+                    logging.debug(f"ISBN {isbn} ('{title}'): Skipping because no C-Code with Scheme '78' was found.")
+                else:
+                    logging.debug(f"ISBN {isbn} ('{title}'): Skipping because found C-Code '{c_code_found}' (Scheme 78) is not in TARGET_C_CODES.")
 
     # Sort books by publication date (newest first)
     filtered_list.sort(key=lambda item: item[1], reverse=True)
 
     logging.info(f"Filtering complete. Processed {processed_count} items, found {matched_count} matching criteria.")
     return filtered_list
+
 
 def generate_rss_feed(filtered_books):
     """Generates the RSS feed using feedgen and saves it to OUTPUT_FILE.
@@ -319,6 +340,12 @@ def generate_rss_feed(filtered_books):
         # Generate RSS 2.0 feed, ensuring UTF-8 encoding
         fg.rss_file(OUTPUT_FILE, pretty=True, encoding='utf-8')
         logging.info(f"Successfully wrote RSS feed to {OUTPUT_FILE}")
+        # Check if the file was actually created (useful for the deploy step condition)
+        if not os.path.exists(OUTPUT_FILE):
+             logging.warning(f"Despite success log, {OUTPUT_FILE} was not found on disk.")
+        elif os.path.getsize(OUTPUT_FILE) == 0:
+             logging.warning(f"{OUTPUT_FILE} was created but is empty.")
+
     except Exception as e:
         logging.error(f"Error writing RSS feed file {OUTPUT_FILE}: {e}")
 
@@ -347,6 +374,10 @@ if __name__ == "__main__":
         logging.info("Generating initial empty feed.")
         generate_rss_feed([])
         new_isbn_set = set() # Ensure no details are fetched on first run
+        logging.info("Initial ISBN list saved. Feed generated (empty). Exiting first run.")
+        end_time = time.time()
+        logging.info(f"First run process finished in {end_time - start_time:.2f} seconds.")
+        exit(0) # Exit normally after saving initial list and creating empty feed
     else:
         # Subsequent runs: find difference
         new_isbn_set = current_isbn_set - previous_isbn_set
@@ -375,13 +406,13 @@ if __name__ == "__main__":
         logging.info(f"Retrieved details for {total_fetched_details} out of {len(new_isbn_list)} new ISBNs.")
     else:
         # Only log "no new ISBNs" if it wasn't the first run
-        if previous_isbn_set:
+        if previous_isbn_set: # Check this again to be sure it wasn't the first run logic path
              logging.info("No new ISBNs found since last run.")
 
     # 5. Filter new books based on criteria (C-Code, pubdate)
     if new_book_data:
-        filtered_new_books = filter_books(new_book_data)
         # Logging is now inside filter_books
+        filtered_new_books = filter_books(new_book_data)
     else:
         filtered_new_books = []
         logging.info("No new book details to filter.")
@@ -390,8 +421,8 @@ if __name__ == "__main__":
     generate_rss_feed(filtered_new_books)
 
     # 7. Save current full ISBN list for the *next* run (only if not first run, already saved there)
-    if previous_isbn_set:
-        save_current_isbns(current_isbn_list)
+    # Always save the latest list at the end of a successful subsequent run
+    save_current_isbns(current_isbn_list)
 
     end_time = time.time()
     logging.info(f"Differential feed generation process finished in {end_time - start_time:.2f} seconds.")
