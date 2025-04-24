@@ -25,7 +25,7 @@ TARGET_C_CODES = { # Updated C-Codes (no "C" prefix, Scheme 78)
 }
 CHUNK_SIZE = 1000
 REQUEST_DELAY = 1
-OUTPUT_FILE = "feed.xml"
+OUTPUT_FILE = "index.xml"
 FEED_TITLE = "発売決定新書RSSフィード"
 FEED_DESCRIPTION = "発売が確定した新書の情報をRSSリーダーで購読できます。"
 FEED_LINK_BASE = "https://www.books.or.jp/book-details/"

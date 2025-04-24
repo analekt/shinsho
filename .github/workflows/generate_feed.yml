@@ -42,23 +42,15 @@ jobs:
         run: python generate_feed.py
 
       - name: Deploy to GitHub Pages
-        # Deploy only if the previous steps succeeded AND feed.xml exists
-        if: success() && hashFiles('feed.xml') != ''
+        # Deploy only if the previous steps succeeded AND index.xml exists
+        if: success() && hashFiles('index.xml') != ''
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # Specify the directory containing feed.xml
           publish_dir: ./
-          # Only include feed.xml in the deployment, exclude others like isbns_previous.json
-          # The action defaults should handle this correctly by using the content of publish_dir
-          # but explicitly setting exclude_assets might be safer if needed.
-          # exclude_assets: 'isbns_previous.json' # Example if needed
-          publish_branch: gh-pages # Deploy to this branch
+          publish_branch: gh-pages
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Update feed.xml [skip ci]' # Add [skip ci] to prevent triggering other workflows
-          # Keep existing files on gh-pages? Defaults to false (clean deploy)
-          # If feed.xml is the only intended file, cleaning is usually best.
-          # keep_files: false
-          # Allow empty commits? No, we check if feed.xml exists.
+          commit_message: 'Update index.xml [skip ci]'
           allow_empty_commit: false
+          # keep_files: false
