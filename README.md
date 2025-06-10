@@ -34,7 +34,7 @@ openBD APIを使用して、新しく登録された新書の情報を検出し�
 セットアップが完了すると、以下のURLでRSSフィードにアクセスできます：
 
 ```
-https://YOUR_USERNAME.github.io/opendb-shinsho-feed/feed.xml
+https://YOUR_USERNAME.github.io/shinsho/index.xml
 ```
 
 （YOUR_USERNAMEは自分のGitHubユーザー名に置き換えてください）
@@ -54,7 +54,7 @@ https://YOUR_USERNAME.github.io/opendb-shinsho-feed/feed.xml
 - `scripts/generate_rss.py` - RSSフィードを生成
 - `.github/workflows/update-feed.yml` - 自動実行の設定
 - `data/shinsho_records.json` - 既存の新書レコード（差分検出用）
-- `docs/feed.xml` - 生成されたRSSフィード
+- `docs/index.xml` - 生成されたRSSフィード
 
 ### RSSフィードの内容
 

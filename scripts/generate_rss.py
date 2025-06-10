@@ -13,8 +13,8 @@ from typing import Dict, List
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 DOCS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs")
 NEW_RECORDS_FILE = os.path.join(DATA_DIR, "new_shinsho_records.json")
-FEED_FILE = os.path.join(DOCS_DIR, "feed.xml")
-SITE_URL = "https://YOUR_USERNAME.github.io/opendb-shinsho-feed"  # GitHubユーザー名に置き換える
+FEED_FILE = os.path.join(DOCS_DIR, "index.xml")
+SITE_URL = "https://analekt.github.io/shinsho"  # GitHubユーザー名に置き換える
 FEED_HISTORY_FILE = os.path.join(DATA_DIR, "feed_history.json")
 MAX_FEED_ENTRIES = 50  # フィードに保持する最大エントリー数
 
@@ -160,11 +160,11 @@ def generate_feed():
     
     # フィードジェネレーターを作成
     fg = FeedGenerator()
-    fg.id(f"{SITE_URL}/feed.xml")
+    fg.id(f"{SITE_URL}/index.xml")
     fg.title("新書新刊情報 - openBD")
     fg.author({"name": "openBD新書フィード", "email": "noreply@example.com"})
     fg.link(href=SITE_URL, rel="alternate")
-    fg.link(href=f"{SITE_URL}/feed.xml", rel="self")
+    fg.link(href=f"{SITE_URL}/index.xml", rel="self")
     fg.subtitle("openBD APIから取得した新書の新刊情報を配信します")
     fg.language("ja")
     fg.lastBuildDate(timestamp)

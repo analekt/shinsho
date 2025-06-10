@@ -49,7 +49,7 @@ jobs:
     
     - name: Commit and push changes
       run: |
-        git add data/shinsho_records.json data/new_shinsho_records.json data/feed_history.json docs/feed.xml
+        git add data/shinsho_records.json data/new_shinsho_records.json data/feed_history.json docs/index.xml
         # 変更がある場合のみコミット
         if git diff --staged --quiet; then
           echo "No changes to commit"

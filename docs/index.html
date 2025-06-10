@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>新書新刊情報 RSS フィード - openBD</title>
-    <link rel="alternate" type="application/rss+xml" title="新書新刊情報" href="./feed.xml">
+    <link rel="alternate" type="application/rss+xml" title="新書新刊情報" href="./index.xml">
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -79,7 +79,7 @@
             このサイトでは、<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD API</a>から取得した新書の新刊情報をRSSフィードとして配信しています。
         </p>
         
-        <a href="./feed.xml" class="feed-link">RSS フィードを購読する</a>
+        <a href="./index.xml" class="feed-link">RSS フィードを購読する</a>
         
         <div class="features">
             <h2>特徴</h2>
@@ -94,7 +94,7 @@
         <div class="info">
             <h2>フィードの登録方法</h2>
             <p>以下のURLをお使いのRSSリーダーに登録してください：</p>
-            <code id="feed-url">https://YOUR_USERNAME.github.io/opendb-shinsho-feed/feed.xml</code>
+            <code id="feed-url">https://YOUR_USERNAME.github.io/shinsho/index.xml</code>
             <button onclick="copyToClipboard()" style="margin-left: 10px; padding: 4px 8px; cursor: pointer;">コピー</button>
         </div>
         
@@ -112,7 +112,7 @@
         <footer style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #ddd; text-align: center; color: #666;">
             <p>
                 Powered by <a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> | 
-                <a href="https://github.com/YOUR_USERNAME/opendb-shinsho-feed" target="_blank" rel="noopener">GitHub</a>
+                <a href="https://github.com/YOUR_USERNAME/shinsho" target="_blank" rel="noopener">GitHub</a>
             </p>
         </footer>
     </div>
@@ -123,7 +123,7 @@
         const match = currentUrl.match(/https:\/\/(.+?)\.github\.io/);
         if (match) {
             const username = match[1];
-            document.getElementById('feed-url').textContent = `https://${username}.github.io/opendb-shinsho-feed/feed.xml`;
+            document.getElementById('feed-url').textContent = `https://${username}.github.io/shinsho/index.xml`;
             document.querySelectorAll('a[href*="YOUR_USERNAME"]').forEach(link => {
                 link.href = link.href.replace('YOUR_USERNAME', username);
             });
