@@ -4,7 +4,7 @@
 """
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from feedgen.feed import FeedGenerator
 from dateutil import parser as date_parser
 from typing import Dict, List
@@ -131,14 +131,23 @@ def generate_feed():
     """
     # 新規レコードを読み込む
     if not os.path.exists(NEW_RECORDS_FILE):
-        print("新規レコードファイルが見つかりません")
-        return
-    
-    with open(NEW_RECORDS_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        print("新規レコードファイルが見つかりません - 空のフィードを生成します")
+        # 空のデータで初期化
+        data = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "count": 0,
+            "records": []
+        }
+        # 空のファイルを作成
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(NEW_RECORDS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    else:
+        with open(NEW_RECORDS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
     
     new_records = data.get("records", [])
-    timestamp = data.get("timestamp", datetime.now().isoformat())
+    timestamp = data.get("timestamp", datetime.now(timezone.utc).isoformat())
     
     print(f"新規レコード数: {len(new_records)}")
     
@@ -167,7 +176,15 @@ def generate_feed():
     fg.link(href=f"{SITE_URL}/index.xml", rel="self")
     fg.subtitle("openBD APIから取得した新書の新刊情報を配信します")
     fg.language("ja")
-    fg.lastBuildDate(timestamp)
+    # タイムゾーン付きの日時を設定
+    try:
+        build_datetime = date_parser.parse(timestamp)
+        if build_datetime.tzinfo is None:
+            # JSTタイムゾーンを追加（UTC+9）
+            build_datetime = build_datetime.replace(tzinfo=timezone(timedelta(hours=9)))
+        fg.lastBuildDate(build_datetime)
+    except:
+        fg.lastBuildDate(datetime.now(timezone.utc))
     
     # フィード履歴からエントリーを生成
     for book in feed_history:
@@ -202,9 +219,12 @@ def generate_feed():
         fetched_at = book.get("fetched_at", timestamp)
         try:
             pub_datetime = date_parser.parse(fetched_at)
+            if pub_datetime.tzinfo is None:
+                # JSTタイムゾーンを追加（UTC+9）
+                pub_datetime = pub_datetime.replace(tzinfo=timezone(timedelta(hours=9)))
             fe.published(pub_datetime)
         except:
-            fe.published(datetime.now())
+            fe.published(datetime.now(timezone.utc))
         
         # カテゴリー（新書）
         fe.category(term="新書", label="新書")
