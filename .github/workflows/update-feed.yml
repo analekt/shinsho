@@ -1,0 +1,67 @@
+name: Update Shinsho RSS Feed
+
+on:
+  # 毎日午前4時（JST）に実行 (UTCでは前日19時)
+  schedule:
+    - cron: '0 19 * * *'
+  # 手動実行も可能にする
+  workflow_dispatch:
+  # 初回セットアップ用にpushでも実行
+  push:
+    branches:
+      - main
+
+jobs:
+  update-feed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6時間のタイムアウト
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Fetch new Shinsho data
+      run: |
+        python scripts/fetch_shinsho.py
+      continue-on-error: false
+    
+    - name: Generate RSS feed
+      run: |
+        python scripts/generate_rss.py
+    
+    - name: Setup Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+    
+    - name: Commit and push changes
+      run: |
+        git add data/shinsho_records.json data/new_shinsho_records.json data/feed_history.json docs/feed.xml
+        # 変更がある場合のみコミット
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Update shinsho feed - $(date +'%Y-%m-%d %H:%M:%S')"
+          git push
+        fi
+    
+    - name: Deploy to GitHub Pages
+      if: success()
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs
+        keep_files: true 
