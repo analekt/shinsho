@@ -19,27 +19,43 @@ BATCH_SIZE = 1000  # APIの最大リクエスト数
 def is_shinsho(book_data: Dict) -> bool:
     """
     書籍が新書かどうかを判定する
-    日本図書コード（Subject）の2桁目が「2」であることを確認
+    Collectionフィールドのタイトルに「新書」が含まれるかを確認
     """
     if not book_data or "onix" not in book_data:
         return False
     
     onix = book_data.get("onix", {})
     descriptive_detail = onix.get("DescriptiveDetail", {})
-    subjects = descriptive_detail.get("Subject", [])
     
-    # Subjectは配列の場合がある
-    if not isinstance(subjects, list):
-        subjects = [subjects]
+    # Collection情報を確認
+    collection = descriptive_detail.get("Collection", {})
+    if collection:
+        title_detail = collection.get("TitleDetail", {})
+        if title_detail:
+            title_elements = title_detail.get("TitleElement", [])
+            
+            # TitleElementが配列でない場合は単一要素として扱う
+            if not isinstance(title_elements, list):
+                title_elements = [title_elements]
+            
+            for element in title_elements:
+                if isinstance(element, dict):
+                    title_text = element.get("TitleText", {})
+                    if isinstance(title_text, dict):
+                        content = title_text.get("content", "")
+                    else:
+                        content = title_text
+                    
+                    # 「新書」が含まれているかチェック
+                    if isinstance(content, str) and "新書" in content:
+                        return True
     
-    for subject in subjects:
-        if isinstance(subject, dict):
-            # SubjectCodeが20（日本図書コード）の場合
-            if subject.get("SubjectSchemeIdentifier") == "20":
-                subject_code = subject.get("SubjectCode", "")
-                # 2桁目が「2」かどうか確認
-                if len(subject_code) >= 2 and subject_code[1] == "2":
-                    return True
+    # summaryフィールドのseriesも確認（バックアップ）
+    summary = book_data.get("summary", {})
+    if summary:
+        series = summary.get("series", "")
+        if isinstance(series, str) and "新書" in series:
+            return True
     
     return False
 
