@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
+  <channel>
+    <title>新書新刊情報 - openBD</title>
+    <link>https://analekt.github.io/shinsho/index.xml</link>
+    <description>openBD APIから取得した新書の新刊情報を配信します</description>
+    <atom:link href="https://analekt.github.io/shinsho/index.xml" rel="self"/>
+    <docs>http://www.rssboard.org/rss-specification</docs>
+    <generator>python-feedgen</generator>
+    <language>ja</language>
+    <lastBuildDate>Wed, 11 Jun 2025 01:14:00 +0900</lastBuildDate>
+  </channel>
+</rss>
