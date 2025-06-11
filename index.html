@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新書新刊情報 RSS フィード - openBD</title>
+    <link rel="alternate" type="application/rss+xml" title="新書新刊情報" href="./index.xml">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+        .feed-link {
+            display: inline-block;
+            background-color: #ff6600;
+            color: white;
+            padding: 0.5rem 1.5rem;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-top: 1rem;
+            transition: background-color 0.3s;
+        }
+        .feed-link:hover {
+            background-color: #e55500;
+        }
+        .info {
+            background-color: #e3f2fd;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-top: 2rem;
+        }
+        code {
+            background-color: #f1f1f1;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .features {
+            margin-top: 2rem;
+        }
+        .features ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .features li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+        .features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4caf50;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 新書新刊情報 RSS フィード</h1>
+        
+        <p>
+            このサイトでは、<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD API</a>から取得した新書の新刊情報をRSSフィードとして配信しています。
+        </p>
+        
+        <a href="./index.xml" class="feed-link">RSS フィードを購読する</a>
+        
+        <div class="features">
+            <h2>特徴</h2>
+            <ul>
+                <li>毎日午前4時に自動更新</li>
+                <li>新書の新刊情報のみを厳選して配信</li>
+                <li>書名、著者、出版社、シリーズ名などの詳細情報を含む</li>
+                <li>著者略歴も含めた充実した内容</li>
+            </ul>
+        </div>
+        
+        <div class="info">
+            <h2>フィードの登録方法</h2>
+            <p>以下のURLをお使いのRSSリーダーに登録してください：</p>
+            <code id="feed-url">https://YOUR_USERNAME.github.io/shinsho/index.xml</code>
+            <button onclick="copyToClipboard()" style="margin-left: 10px; padding: 4px 8px; cursor: pointer;">コピー</button>
+        </div>
+        
+        <div style="margin-top: 2rem;">
+            <h2>対応しているRSSリーダー</h2>
+            <ul>
+                <li>Feedly</li>
+                <li>Inoreader</li>
+                <li>NewsBlur</li>
+                <li>The Old Reader</li>
+                <li>その他、標準的なRSSリーダー</li>
+            </ul>
+        </div>
+        
+        <footer style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #ddd; text-align: center; color: #666;">
+            <p>
+                Powered by <a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> | 
+                <a href="https://github.com/YOUR_USERNAME/shinsho" target="_blank" rel="noopener">GitHub</a>
+            </p>
+        </footer>
+    </div>
+    
+    <script>
+        // GitHubのユーザー名を自動的に取得して置換
+        const currentUrl = window.location.href;
+        const match = currentUrl.match(/https:\/\/(.+?)\.github\.io/);
+        if (match) {
+            const username = match[1];
+            document.getElementById('feed-url').textContent = `https://${username}.github.io/shinsho/index.xml`;
+            document.querySelectorAll('a[href*="YOUR_USERNAME"]').forEach(link => {
+                link.href = link.href.replace('YOUR_USERNAME', username);
+            });
+        }
+        
+        function copyToClipboard() {
+            const feedUrl = document.getElementById('feed-url').textContent;
+            navigator.clipboard.writeText(feedUrl).then(() => {
+                alert('URLをコピーしました！');
+            });
+        }
+    </script>
+</body>
+</html> 
