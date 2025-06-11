@@ -5,6 +5,7 @@ openBD APIから新書データを取得し、新規登録を検出するスク�
 import json
 import os
 import requests
+import argparse
 from datetime import datetime
 from typing import Dict, List, Set, Optional
 
@@ -16,7 +17,7 @@ NEW_RECORDS_FILE = os.path.join(DATA_DIR, "new_shinsho_records.json")
 BATCH_SIZE = 1000  # APIの最大リクエスト数
 
 
-def is_shinsho(book_data: Dict) -> bool:
+def is_shinsho(book_data: Dict, debug_mode: bool = False) -> bool:
     """
     書籍が新書かどうかを判定する
     Collectionフィールドのタイトルに「新書」が含まれるかを確認
@@ -48,6 +49,8 @@ def is_shinsho(book_data: Dict) -> bool:
                     
                     # 「新書」が含まれているかチェック
                     if isinstance(content, str) and "新書" in content:
+                        if debug_mode:
+                            print(f"新書を検出: {content}")
                         return True
     
     # summaryフィールドのseriesも確認（バックアップ）
@@ -55,7 +58,51 @@ def is_shinsho(book_data: Dict) -> bool:
     if summary:
         series = summary.get("series", "")
         if isinstance(series, str) and "新書" in series:
+            if debug_mode:
+                print(f"新書を検出 (summary.series): {series}")
             return True
+    
+    # デバッグモードの場合、情報を出力
+    if debug_mode:
+        isbn = book_data.get("onix", {}).get("RecordReference", "")
+        title = ""
+        
+        # タイトル情報を取得
+        title_detail = descriptive_detail.get("TitleDetail", {})
+        if title_detail:
+            title_element = title_detail.get("TitleElement", {})
+            if title_element:
+                if isinstance(title_element, dict):
+                    title_text = title_element.get("TitleText", {})
+                    if isinstance(title_text, dict):
+                        title = title_text.get("content", "")
+                    else:
+                        title = title_text
+        
+        # Collectionの情報を出力
+        if collection:
+            coll_title_detail = collection.get("TitleDetail", {})
+            if coll_title_detail:
+                coll_title_elements = coll_title_detail.get("TitleElement", [])
+                if not isinstance(coll_title_elements, list):
+                    coll_title_elements = [coll_title_elements]
+                
+                coll_titles = []
+                for element in coll_title_elements:
+                    if isinstance(element, dict):
+                        coll_title_text = element.get("TitleText", {})
+                        if isinstance(coll_title_text, dict):
+                            coll_content = coll_title_text.get("content", "")
+                        else:
+                            coll_content = coll_title_text
+                        coll_titles.append(coll_content)
+                
+                if coll_titles:
+                    print(f"検出されなかった書籍: ISBN={isbn}, タイトル={title}, Collection={coll_titles}")
+        
+        # summary.seriesの情報も出力
+        if summary and summary.get("series"):
+            print(f"検出されなかった書籍: ISBN={isbn}, タイトル={title}, Series={summary.get('series')}")
     
     return False
 
@@ -71,6 +118,16 @@ def get_all_isbns() -> List[str]:
     isbn_list = response.json()
     print(f"総ISBN数: {len(isbn_list)}")
     return isbn_list
+
+
+def get_japanese_isbns(all_isbns: List[str]) -> List[str]:
+    """
+    日本の書籍のISBNのみをフィルタリング (978-4で始まるもの)
+    デバッグモード用
+    """
+    jp_isbns = [isbn for isbn in all_isbns if isbn.startswith("978-4") or isbn.startswith("9784")]
+    print(f"日本の書籍ISBN数: {len(jp_isbns)}")
+    return jp_isbns
 
 
 def fetch_books_batch(isbns: List[str]) -> List[Dict]:
@@ -188,7 +245,23 @@ def main():
     """
     メイン処理
     """
+    # コマンドライン引数の解析
+    parser = argparse.ArgumentParser(description='openBD APIから新書データを取得するスクリプト')
+    parser.add_argument('--debug', action='store_true', help='デバッグモードを有効にする')
+    parser.add_argument('--limit', type=int, default=None, help='処理するISBN数を制限する（デバッグ用）')
+    parser.add_argument('--jp-only', action='store_true', help='日本の書籍のみを処理する')
+    args = parser.parse_args()
+    
+    debug_mode = args.debug
+    limit = args.limit
+    jp_only = args.jp_only
+    
     print("新書データ取得処理を開始します...")
+    if debug_mode:
+        print("デバッグモードが有効です")
+    if jp_only:
+        print("日本の書籍のみを処理します")
+    
     start_time = datetime.now()
     
     # 既存レコードを読み込み
@@ -204,8 +277,16 @@ def main():
     # 全ISBNリストを取得
     all_isbns = get_all_isbns()
     
+    # 日本の書籍のみに絞り込み
+    if jp_only:
+        all_isbns = get_japanese_isbns(all_isbns)
+    
+    # デバッグモードでサンプル数を制限
+    if limit:
+        print(f"指定された上限({limit}件)までのISBNのみ処理します")
+        all_isbns = all_isbns[:limit]
     # 初回実行時は処理を分割（GitHub Actionsのタイムアウト対策）
-    if is_initial_run and len(all_isbns) > 100000:
+    elif is_initial_run and len(all_isbns) > 100000:
         print(f"初回実行のため、最初の100,000件のみ処理します。")
         all_isbns = all_isbns[:100000]
     
@@ -236,7 +317,7 @@ def main():
             books = fetch_books_batch(batch_isbns)
             
             for book in books:
-                if is_shinsho(book):
+                if is_shinsho(book, debug_mode):
                     isbn = book.get("onix", {}).get("RecordReference", "")
                     if isbn and isbn not in existing_isbns:
                         # 新規新書を発見
@@ -251,32 +332,29 @@ def main():
             processed_count += len(batch_isbns)
             
         except Exception as e:
-            print(f"バッチ {batch_num} の処理中にエラー: {e}")
             error_count += 1
-            # エラーが多い場合は中断
-            if error_count > 10:
-                print("エラーが多いため処理を中断します。")
-                break
-            continue
+            print(f"エラー発生 (バッチ {batch_num}): {str(e)}")
         
-        # 定期的に進捗を保存（クラッシュ対策）
+        # 50バッチごとに中間保存
         if batch_num % 50 == 0:
             save_records(updated_records)
-            print(f"中間保存を実行しました（{len(updated_records)}件）")
+            save_new_records(new_shinsho_records)
+            print(f"中間保存を実行しました（{len(new_shinsho_records)}件）")
     
-    # 結果を保存
-    elapsed_total = (datetime.now() - start_time).total_seconds()
-    print(f"\n処理完了:")
-    print(f"- 処理時間: {elapsed_total/60:.1f}分")
+    # 最終的な結果を保存
+    save_records(updated_records)
+    save_new_records(new_shinsho_records)
+    
+    # 処理時間を計算
+    elapsed_seconds = (datetime.now() - start_time).total_seconds()
+    elapsed_minutes = elapsed_seconds / 60
+    
+    print("\n処理完了:")
+    print(f"- 処理時間: {elapsed_minutes:.1f}分")
     print(f"- 処理したISBN数: {processed_count}")
     print(f"- 新書総数: {shinsho_count}")
     print(f"- 新規新書数: {len(new_shinsho_records)}")
     print(f"- エラー数: {error_count}")
-    
-    # レコードを保存
-    save_records(updated_records)
-    save_new_records(new_shinsho_records)
-    
     print("データ保存完了")
 
 
