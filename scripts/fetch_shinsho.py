@@ -267,51 +267,59 @@ def main():
     # 既存レコードを読み込み
     existing_records = load_existing_records()
     existing_isbns = set(existing_records.keys())
-    print(f"既存の新書レコード数: {len(existing_records)}")
     
-    # 初回実行かどうかを判定
-    is_initial_run = len(existing_records) == 0
-    if is_initial_run:
-        print("初回実行を検出しました。処理に時間がかかる場合があります。")
+    # 初回実行か差分更新かを判定
+    is_full_scan = not os.path.exists(RECORDS_FILE) or os.path.getsize(RECORDS_FILE) == 0
+    if is_full_scan:
+        print("データファイルが存在しないため、全件スキャンを実行します。")
+        print("処理には数時間かかる場合があります。")
+    else:
+        print(f"差分更新を実行します。既存レコード数: {len(existing_records)}")
     
     # 全ISBNリストを取得
+    print("openBDからISBNリストを取得中...")
     all_isbns = get_all_isbns()
     
+    # これから処理するISBNリストを決定
+    if is_full_scan:
+        target_isbns = all_isbns
+        print(f"全件スキャン対象: {len(target_isbns)}件")
+    else:
+        all_isbns_set = set(all_isbns)
+        target_isbns = list(all_isbns_set - existing_isbns)
+        print(f"差分更新対象: {len(target_isbns)}件 (全体: {len(all_isbns)}件, 既存: {len(existing_isbns)}件)")
+
     # 日本の書籍のみに絞り込み
     if jp_only:
-        all_isbns = get_japanese_isbns(all_isbns)
+        target_isbns = get_japanese_isbns(target_isbns)
     
     # デバッグモードでサンプル数を制限
     if limit:
         print(f"指定された上限({limit}件)までのISBNのみ処理します")
-        all_isbns = all_isbns[:limit]
-    # 初回実行時は処理を分割（GitHub Actionsのタイムアウト対策）
-    elif is_initial_run and len(all_isbns) > 100000:
-        print(f"初回実行のため、最初の100,000件のみ処理します。")
-        all_isbns = all_isbns[:100000]
+        target_isbns = target_isbns[:limit]
     
+    if not target_isbns:
+        print("処理対象の新しいISBNはありませんでした。")
+        save_new_records([]) # 空のレコードを保存してタイムスタンプを更新
+        print("処理を終了します。")
+        return
+
     # 新しい新書レコード
     new_shinsho_records = []
     updated_records = existing_records.copy()
     
     # バッチ処理
-    total_batches = (len(all_isbns) + BATCH_SIZE - 1) // BATCH_SIZE
+    total_batches = (len(target_isbns) + BATCH_SIZE - 1) // BATCH_SIZE
     processed_count = 0
-    shinsho_count = len(existing_records)  # 既存の新書数から開始
     error_count = 0
     
-    for i in range(0, len(all_isbns), BATCH_SIZE):
-        batch_isbns = all_isbns[i:i + BATCH_SIZE]
+    for i in range(0, len(target_isbns), BATCH_SIZE):
+        batch_isbns = target_isbns[i:i + BATCH_SIZE]
         batch_num = i // BATCH_SIZE + 1
         
         # より詳細な進捗表示
-        if batch_num % 5 == 1:  # 5バッチごとに表示
-            elapsed = (datetime.now() - start_time).total_seconds()
-            rate = processed_count / elapsed if elapsed > 0 else 0
-            eta = (len(all_isbns) - processed_count) / rate if rate > 0 else 0
-            print(f"\nバッチ {batch_num}/{total_batches} を処理中...")
-            print(f"経過時間: {elapsed:.1f}秒, 処理速度: {rate:.1f} ISBN/秒")
-            print(f"推定残り時間: {eta/60:.1f}分")
+        elapsed = (datetime.now() - start_time).total_seconds()
+        print(f"\nバッチ {batch_num}/{total_batches} を処理中... (経過時間: {elapsed:.1f}秒)")
         
         try:
             books = fetch_books_batch(batch_isbns)
@@ -319,16 +327,15 @@ def main():
             for book in books:
                 if is_shinsho(book, debug_mode):
                     isbn = book.get("onix", {}).get("RecordReference", "")
-                    if isbn and isbn not in existing_isbns:
-                        # 新規新書を発見
+                    # 全件スキャン時は既存チェック不要、差分更新時は必要
+                    if isbn and (is_full_scan or isbn not in existing_isbns):
                         book_info = extract_book_info(book)
                         new_shinsho_records.append(book_info)
                         updated_records[isbn] = book_info
-                        existing_isbns.add(isbn)  # 重複防止
-                        print(f"新規新書発見: {book_info['title']} (ISBN: {isbn})")
-                    if isbn not in existing_isbns:
-                        shinsho_count += 1
-            
+                        if not is_full_scan:
+                             # 差分更新の時だけログを出すと見やすい
+                            print(f"新規新書発見: {book_info['title']} (ISBN: {isbn})")
+
             processed_count += len(batch_isbns)
             
         except Exception as e:
@@ -336,10 +343,10 @@ def main():
             print(f"エラー発生 (バッチ {batch_num}): {str(e)}")
         
         # 50バッチごとに中間保存
-        if batch_num % 50 == 0:
+        if batch_num > 0 and batch_num % 50 == 0:
             save_records(updated_records)
             save_new_records(new_shinsho_records)
-            print(f"中間保存を実行しました（{len(new_shinsho_records)}件）")
+            print(f"中間保存を実行しました（新規{len(new_shinsho_records)}件, 合計{len(updated_records)}件）")
     
     # 最終的な結果を保存
     save_records(updated_records)
@@ -350,11 +357,12 @@ def main():
     elapsed_minutes = elapsed_seconds / 60
     
     print("\n処理完了:")
+    print(f"- 処理モード: {'全件スキャン' if is_full_scan else '差分更新'}")
     print(f"- 処理時間: {elapsed_minutes:.1f}分")
     print(f"- 処理したISBN数: {processed_count}")
-    print(f"- 新書総数: {shinsho_count}")
     print(f"- 新規新書数: {len(new_shinsho_records)}")
     print(f"- エラー数: {error_count}")
+    print(f"- 保存された新書総数: {len(updated_records)}")
     print("データ保存完了")
 
 
